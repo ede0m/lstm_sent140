@@ -1,7 +1,7 @@
 import dataset as ds
 import gensim 
 import numpy
-import pydot
+# import pydot
 from keras.models import Sequential
 from keras.layers import Dense, Embedding
 from keras.layers import LSTM
@@ -43,4 +43,4 @@ model.add(Dense(1, activation='sigmoid'))
 model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 print(model.summary())
 
-plot_model(model, to_file='../model.png')
+# plot_model(model, to_file='../model.png')
