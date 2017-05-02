@@ -11,8 +11,29 @@ from keras.layers import LSTM
 from keras.utils import plot_model
 from keras.preprocessing import sequence
 
-from keras.models import Model
+#from keras.models import Model
 
+def qgram(tweet, gram_size):
+	ret = []
+	tweet = tweet.split(" ")
+	window_start = 0 - gram_size + 1
+	window_end = 0
+	while window_start < (len(tweet)):
+		gram = []
+		temp_s = window_start
+		temp_e = window_end
+		# Go through window #
+		while temp_s <= window_end:
+			if (temp_s < 0) or (temp_s > (len(tweet)-1)):
+				gram.append(0)
+			else:
+				gram.append(tweet[temp_s])
+			temp_s += 1
+
+		ret.append(gram)
+		window_start += 1
+		window_end += 1
+	return ret
 
 
 # Load W2V Model #
@@ -21,26 +42,28 @@ numWords = len(w2v.wv.vocab)
 dimension = w2v.vector_size
 
 # Load in text data and transform to vectors. TRAIN AND TEST#
-df_train = pd.read_csv('../../lstm_data/sampleTrain.csv', encoding='ISO-8859-1')
-df_test = pd.read_csv('../../lstm_data/sampleTest.csv', encoding='ISO-8859-1')
+df_train = pd.read_csv('../data/sampleTrain.csv', encoding='ISO-8859-1')
+df_test = pd.read_csv('../data/sampleTest.csv', encoding='ISO-8859-1')
 
 # Testing data prep #
 tweet_vecs_test = []
 outputs_test = []
 for index,row in df_test.iterrows():
-	tokens = row[5].split(" ")
+	tokens = qgram(row[5], 2)
+	#tokens = row[5].split(" ")
 	vec = []
 	for word in tokens:
-		#vec = []
-		try:
-			idx = w2v.wv.vocab[word].index
-			vec.extend([idx])							
-		# zero padding
-		except TypeError:
-			vec.extend([0])											
-		# word not it dict
-		except KeyError:
-			vec.extend([0])
+		for gram in word:
+			try:
+				#idx = w2v.wv.vocab[word].index
+				idx = w2v.wv.vocab[gram].index
+				vec.extend([idx])							
+			# zero padding
+			except TypeError:
+				vec.extend([0])											
+			# word not it dict
+			except KeyError:
+				vec.extend([0])
 
 	if (row[0] == 4):
 		outputs_test.append(1)
@@ -51,7 +74,6 @@ for index,row in df_test.iterrows():
 
 tweet_vecs_test = np.array(tweet_vecs_test)
 
-
 # Training data prep
 tweet_vecs_train = []
 outputs_train = []
@@ -61,32 +83,31 @@ for index,row in df_train.iterrows():
 	tokens = row[6].split(" ")
 	lengths.append(len(tokens))
 	vec = []
-	#tweet_vec = []
+
 	for word in tokens:
-		#vec = []
-		try:
-			idx = w2v.wv.vocab[word].index
-			# vec.extend(w2v.wv[word].tolist())
-			vec.extend([idx])
-			# vec.extend(w2v[word])
-																	##  CURRENTLY PUSHING INDEX OF WORD EMBEDDING VECTOR INSTEAD OF VECTOR ITSELF. (EACH IDX REPRESENTS)
-																	##  This assumes that the embedding layer is functioning by mapping the index that it is fed to a wordvector
-																	##  This change fixed the following error:
-																	# 	
-																	#    InvalidArgumentError (see above for traceback): indices[0,8] = -1 is not in [0, 135731)
-																	#	 [[Node: embedding_1/Gather = Gather[Tindices=DT_INT32, Tparams=DT_FLOAT, validate_indices=true, _device="/job:localhost/replica:0/task:0/cpu:0"](embedding_1/embeddings/read, _recv_embedding_1_input_0)]]
+		for gram in word:		
+			try:
+				#idx = w2v.wv.vocab[word].index
+				idx = w2v.wv.vocab[gram].index
+				vec.extend([idx])
+				
+																		##  CURRENTLY PUSHING INDEX OF WORD EMBEDDING VECTOR INSTEAD OF VECTOR ITSELF. (EACH IDX REPRESENTS)
+																		##  This assumes that the embedding layer is functioning by mapping the index that it is fed to a wordvector
+																		##  This change fixed the following error:
+																		# 	
+																		#    InvalidArgumentError (see above for traceback): indices[0,8] = -1 is not in [0, 135731)
+																		#	 [[Node: embedding_1/Gather = Gather[Tindices=DT_INT32, Tparams=DT_FLOAT, validate_indices=true, _device="/job:localhost/replica:0/task:0/cpu:0"](embedding_1/embeddings/read, _recv_embedding_1_input_0)]]
 
 
-		# zero padding
-		except TypeError:
-			vec.extend([0])											# This should not be zero! it is supposed to map to a vector that represnts a any word not in the dict
-																	# Look to see if it is possible to add a ceritan word to the model in gensim?
-			# vec.extend(np.zeros(dimension))
-		# word not it dict
-		except KeyError:
-			vec.extend([0])
-			# vec.extend(np.zeros(dimension))
-		#tweet_vec.append(vec)
+			# zero padding
+			except TypeError:
+				vec.extend([0])											# This should not be zero! it is supposed to map to a vector that represnts a any word not in the dict
+																		# Look to see if it is possible to add a ceritan word to the model in gensim?
+				# vec.extend(np.zeros(dimension))
+			# word not it dict
+			except KeyError:
+				vec.extend([0])
+				# vec.extend(np.zeros(dimension))
 
 	if (row[1] == 4):												# Hacky. Will move later
 		outputs_train.append(1)
@@ -136,7 +157,8 @@ print("\n ---- fitting model ---- \n")
 # Fit and Train Model #
 model.fit(X_train, outputs_train, epochs=2, batch_size=60)
 # Evaluate #
-scores = model.evaluate(X_test, outputs_test, verbose=0)
+scores = model.evaluate(X_test, outputs_test, verbose=1)
+print(scores)
 
 
 
