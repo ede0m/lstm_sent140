@@ -18,7 +18,7 @@ numWords = len(w2v.wv.vocab)
 dimension = w2v.vector_size
 
 # Load in text data and transform to vectors #
-df = pd.read_csv('../../lstm_data/training.csv', encoding = 'ISO-8859-1')
+df = pd.read_csv('../../lstm_data/sampleTrain.csv', encoding = 'ISO-8859-1')
 
 tweet_vecs = []
 outputs = []
@@ -43,14 +43,14 @@ for index,row in df.iterrows():
 	tweet_vecs.append(vec)
 
 mean = sum(lengths)/len(lengths)
-std = math.std(lengths) 
+std = np.std(lengths) 
 time_sequence = mean + (2*std)
 
-print(tweet_vecs)
+# print(tweet_vecs)
 
 
 # train and test data format #
-X_train = sequence.pad_sequences(tweet_vecs, maxlen=time_sequence)
+# X_train = sequence.pad_sequences(tweet_vecs, maxlen=time_sequence)
 #X_test = sequence.pad_sequences(, maxlen=time_sequence)
 
 
@@ -60,13 +60,13 @@ weights = np.load(open('../vocab_weights', 'rb'))
 # create Model #
 model = Sequential()
 model.add(Embedding(input_dim=weights.shape[0], output_dim=weights.shape[1], weights=[weights]))
-model.add(LSTM(100, dropout=0.2, recurrent_dropout=0.2)) # input_shape=(input_len, feats)
+model.add(LSTM(100, input_shape=(input_len, feats), dropout=0.2, recurrent_dropout=0.2)) # 
 model.add(Dense(1, activation='sigmoid'))
 model.compile(loss='mean_squared_error', optimizer='adam', metrics=['accuracy'])
 print(model.summary())
 
 # Fit and Train Model #
-model.fit(data, targets, epochs=10, batch_size=60)
+model.fit(tweet_vecs, outputs, epochs=10, batch_size=60)
 
 
 
