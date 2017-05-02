@@ -20,16 +20,43 @@ w2v = gensim.models.Word2Vec.load('../vocab')
 numWords = len(w2v.wv.vocab)
 dimension = w2v.vector_size
 
-# Load in text data and transform to vectors #
-df = pd.read_csv('../data/sampleTrain.csv', encoding = 'ISO-8859-1')
+# Load in text data and transform to vectors. TRAIN AND TEST#
+df_train = pd.read_csv('../../lstm_data/sampleTrain.csv', encoding='ISO-8859-1')
+df_test = pd.read_csv('../../lstm_data/sampleTest.csv', encoding='ISO-8859-1')
 
-tweet_vecs = []
-outputs = []
+# Testing data prep #
+tweet_vecs_test = []
+outputs_test = []
+for index,row in df_test.iterrows():
+	tokens = row[5].split(" ")
+	vec = []
+	for word in tokens:
+		#vec = []
+		try:
+			idx = w2v.wv.vocab[word].index
+			vec.extend([idx])							
+		# zero padding
+		except TypeError:
+			vec.extend([0])											
+		# word not it dict
+		except KeyError:
+			vec.extend([0])
+
+	if (row[0] == 4):
+		outputs_test.append(1)
+	else:
+		outputs_test.append(row[0])
+	
+	tweet_vecs_test.append(vec)
+
+tweet_vecs_test = np.array(tweet_vecs_test)
+
+
+# Training data prep
+tweet_vecs_train = []
+outputs_train = []
 lengths = []
-
-
-
-for index,row in df.iterrows():
+for index,row in df_train.iterrows():
 	#tweets.append(row[5])
 	tokens = row[6].split(" ")
 	lengths.append(len(tokens))
@@ -61,25 +88,26 @@ for index,row in df.iterrows():
 			# vec.extend(np.zeros(dimension))
 		#tweet_vec.append(vec)
 
-	if (row[1] == 4):
-		outputs.append(1)
+	if (row[1] == 4):												# Hacky. Will move later
+		outputs_train.append(1)
 	else:
-		outputs.append(row[1])
-	tweet_vecs.append(vec)
+		outputs_train.append(row[1])
+	
+	tweet_vecs_train.append(vec)
 
-#print(lengths)
-mean = sum(lengths)/len(lengths)
-std = np.std(lengths) 
-time_sequence = math.ceil(mean + (2*std))
-tweet_vecs = np.array(tweet_vecs)
-print("\n ---- Tweet  Vectors --- \n")
-print(tweet_vecs)
+
+
+
+
 
 # train and test data format #
-X_train = sequence.pad_sequences(tweet_vecs, maxlen=time_sequence) 		# Fixed by downgrading to numpy 1.11.2 
-print("\n ---- x train ---- \n")
-print(X_train)
-#X_test = sequence.pad_sequences(, maxlen=time_sequence)
+mean = sum(lengths)/len(lengths)
+std = np.std(lengths) 
+time_sequence = math.ceil(mean + (2*std))										# Constant for both train and test sets. Evaluated from training set examples
+tweet_vecs_train = np.array(tweet_vecs_train)
+
+X_train = sequence.pad_sequences(tweet_vecs_train, maxlen=time_sequence) 		# Fixed by downgrading to numpy 1.11.2 
+X_test = sequence.pad_sequences(tweet_vecs_test, maxlen=time_sequence)
 weights = np.load(open('../vocab_weights', 'rb'))
 
 
@@ -97,16 +125,18 @@ model.compile(loss='mean_squared_error', optimizer='adam', metrics=['accuracy'])
 print(model.summary())
 
 
-intermediate_layer_model = Model(inputs=model.input,
-                                 outputs=model.get_layer('inpt').output)
-intermediate_output = intermediate_layer_model.predict(X_train)
-print(intermediate_output)
+#intermediate_layer_model = Model(inputs=model.input,
+#                                outputs=model.get_layer('inpt').output)
+#intermediate_output = intermediate_layer_model.predict(X_train)
+
 
 
 print("\n ---- fitting model ---- \n")
 
 # Fit and Train Model #
-model.fit(X_train, outputs, epochs=10, batch_size=60)
+model.fit(X_train, outputs_train, epochs=2, batch_size=60)
+# Evaluate #
+scores = model.evaluate(X_test, outputs_test, verbose=0)
 
 
 
