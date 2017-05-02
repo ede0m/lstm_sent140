@@ -21,8 +21,8 @@ numWords = len(w2v.wv.vocab)
 dimension = w2v.vector_size
 
 # Load in text data and transform to vectors. TRAIN AND TEST#
-df_train = pd.read_csv('../../lstm_data/sampleTrain.csv', encoding='ISO-8859-1')
-df_test = pd.read_csv('../../lstm_data/sampleTest.csv', encoding='ISO-8859-1')
+df_train = pd.read_csv('../data/sampleTrain.csv', encoding='ISO-8859-1')
+df_test = pd.read_csv('../data/sampleTest.csv', encoding='ISO-8859-1')
 
 # Testing data prep #
 tweet_vecs_test = []
