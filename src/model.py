@@ -25,8 +25,7 @@ df_test = pd.read_csv('../data/sampleTest.csv', encoding='ISO-8859-1')
 tweet_vecs_test = []
 outputs_test = []
 for index,row in df_test.iterrows():
-	tokens = qgram(row[5], 2)
-	#tokens = row[5].split(" ")
+	tokens = row[5].split(" ")
 	vec = []
 	for word in tokens:
 		try:
@@ -53,7 +52,6 @@ tweet_vecs_train = []
 outputs_train = []
 lengths = []
 for index,row in df_train.iterrows():
-	#tweets.append(row[5])
 	tokens = row[6].split(" ")
 	lengths.append(len(tokens))
 	vec = []
