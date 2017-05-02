@@ -48,7 +48,7 @@ class DataSet(object):
 		std = numpy.std(lens)
 		mean = sum(lens)/len(lens)
 		grams_dimenson = math.ceil(mean + (2*std))		# Time series for LSTM layer
-		
+		self.time_series = grams_dimenson
 		print('\n- constructing dataset padding -\n')
 		for twt_grms in data:
 			n_grams = len(twt_grms)

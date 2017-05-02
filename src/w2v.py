@@ -1,7 +1,8 @@
 # Used for transforming our test and training dataset into a word2Vec vocabulary 
 
-import gensim
+from gensim.models import Word2Vec
 import pandas as pd
+import numpy as np
 
 
 #tweets = []
@@ -22,7 +23,9 @@ class loadData(object):
 
 data = loadData('../data/concat.csv')
 ## Create Model ##
-model = gensim.models.Word2Vec(data, min_count = 5, size = 50, workers = 4)
+model = Word2Vec(data, min_count = 5, size = 50, workers = 4)
+weights = model.syn0
+np.save(open('../vocab_weights', 'wb'), weights)
 
 print('\nMost Similar pos/neg for "weed", "rip", "stick"\n')
 print(model.most_similar(positive=['weed', 'rip', 'stick'], negative=['weed', 'rip', 'stick']))
