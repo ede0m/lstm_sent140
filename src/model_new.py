@@ -21,7 +21,7 @@ numWords = len(w2v.wv.vocab)
 dimension = w2v.vector_size
 
 # Load in text data and transform to vectors #
-df = pd.read_csv('../../lstm_data/sampleTrain.csv', encoding = 'ISO-8859-1')
+df = pd.read_csv('../data/sampleTrain.csv', encoding = 'ISO-8859-1')
 
 tweet_vecs = []
 outputs = []
@@ -39,8 +39,9 @@ for index,row in df.iterrows():
 		#vec = []
 		try:
 			idx = w2v.wv.vocab[word].index
+			# vec.extend(w2v.wv[word].tolist())
 			vec.extend([idx])
-			#vec.extend(w2v[word])
+			# vec.extend(w2v[word])
 																	##  CURRENTLY PUSHING INDEX OF WORD EMBEDDING VECTOR INSTEAD OF VECTOR ITSELF. (EACH IDX REPRESENTS)
 																	##  This assumes that the embedding layer is functioning by mapping the index that it is fed to a wordvector
 																	##  This change fixed the following error:
@@ -60,7 +61,10 @@ for index,row in df.iterrows():
 			# vec.extend(np.zeros(dimension))
 		#tweet_vec.append(vec)
 
-	outputs.append(row[1])
+	if (row[1] == 4):
+		outputs.append(1)
+	else:
+		outputs.append(row[1])
 	tweet_vecs.append(vec)
 
 #print(lengths)
@@ -68,10 +72,12 @@ mean = sum(lengths)/len(lengths)
 std = np.std(lengths) 
 time_sequence = math.ceil(mean + (2*std))
 tweet_vecs = np.array(tweet_vecs)
-# print(tweet_vecs)
+print("\n ---- Tweet  Vectors --- \n")
+print(tweet_vecs)
 
 # train and test data format #
 X_train = sequence.pad_sequences(tweet_vecs, maxlen=time_sequence) 		# Fixed by downgrading to numpy 1.11.2 
+print("\n ---- x train ---- \n")
 print(X_train)
 #X_test = sequence.pad_sequences(, maxlen=time_sequence)
 weights = np.load(open('../vocab_weights', 'rb'))
@@ -85,7 +91,7 @@ model = Sequential()
 embed = Embedding(name="inpt", input_dim=weights.shape[0], output_dim=weights.shape[1], input_length=time_sequence, weights=[weights])
 print(embed)
 model.add(embed) # input_length=time_sequence, 
-model.add(LSTM(50, dropout=0.2, recurrent_dropout=0.2)) # input_shape=(None, weights.shape[0], weights.shape[1])) 
+model.add(LSTM(1, dropout=0.2, recurrent_dropout=0.2)) # input_shape=(None, weights.shape[0], weights.shape[1])) 
 model.add(Dense(1, activation='sigmoid'))
 model.compile(loss='mean_squared_error', optimizer='adam', metrics=['accuracy'])
 print(model.summary())
@@ -97,6 +103,7 @@ intermediate_output = intermediate_layer_model.predict(X_train)
 print(intermediate_output)
 
 
+print("\n ---- fitting model ---- \n")
 
 # Fit and Train Model #
 model.fit(X_train, outputs, epochs=10, batch_size=60)
