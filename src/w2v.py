@@ -16,7 +16,7 @@ class loadData(object):
 
 	# Memory friendly iterator. Process one tweet in memory then forget it.
 	def __iter__(self):
-		
+		# process the tweet
 		for index, row in self.df.iterrows():
 			tweet = row[5].split(" ")
 			# Process data.
@@ -63,4 +63,4 @@ print('\n\n Sample raw feature vector for "plant"\n')
 print(model['plant'])
 
 model.save('../vocab')
-print('\n ---- model saved ----')
+print('\n ---- model saved ----\n')

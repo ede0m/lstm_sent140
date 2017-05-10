@@ -6,6 +6,7 @@ from gensim.utils import simple_preprocess
 import numpy as np
 import math
 import pandas as pd
+import re
 from concurrent.futures import ThreadPoolExecutor
 
 # keras shit
@@ -39,7 +40,9 @@ class Configuration(object):
 		self.epochs = epochs
 		self.layers = layers
 		self.model = Sequential()
-		for layer in self.layers:
+		for idx,layer in enumerate(self.layers):
+			nextelem = self.layers[(idx + 1) % len(self.layers)][0]
+			prevelem = self.layers[(idx - 1) % len(self.layers)][0]
 			if layer[0] == 'Embedding':
 				weights = layer[1]
 				self.model.add(Embedding(input_dim=weights.shape[0], output_dim=weights.shape[1], input_length=layer[2], weights=[weights]))
@@ -51,7 +54,10 @@ class Configuration(object):
 				dropout = 0	
 
 			if layer[0] == 'LSTM':
-				self.model.add(LSTM(units, dropout=dropout, recurrent_dropout=dropout)) 
+				if nextelem == 'LSTM': #or prevelem == 'LSTM':
+					self.model.add(LSTM(units, dropout=dropout, recurrent_dropout=dropout, return_sequences=True)) 
+				else:
+					self.model.add(LSTM(units, dropout=dropout, recurrent_dropout=dropout)) 
 			elif layer[0] == 'Dense':
 				self.model.add(Dense(units, activation='sigmoid'))
 			## Other Layers ?? ##
@@ -65,6 +71,7 @@ class Configuration(object):
 		early = EarlyStopping(monitor='val_loss', min_delta=0.0001, patience=3, verbose=0, mode='auto')
 		callbacks = [checkpoint, early]
 		self.model.compile(loss=lossf, optimizer=optimizef, metrics=['accuracy'])
+		print(self.model.summary())
 		# train
 		self.model.fit(TrX, TrY, epochs=self.epochs, batch_size=self.batchsize, callbacks=callbacks, validation_split=.25)
 		
@@ -81,7 +88,7 @@ class Configuration(object):
 		# for layer in self.layers:
 		# 	write.write(layer, ' -> ' ,end='')
 		# write.write('\n -- test accuracy: ', scores[1])
-		print('\n ---- ', self.name, ' ----\n')
+		print('\n\n ---- ', self.name, ' ----\n')
 		print(' -- epochs: ', self.epochs)
 		print(' -- batchsize: ', self.batchsize)
 		print(' -- layers: ', end='')
@@ -91,7 +98,7 @@ class Configuration(object):
 			else:
 				print(layer, ' -> ', end='')
 		print('Output')
-		print(' -- test accuracy: ', scores[1], '\n')
+		print(' -- test accuracy: ', scores[1])
 
 	# Not currently working with keras and tensorflow
 	def run_worker(self, Xt, Yt, Xts, Yts):
@@ -100,33 +107,69 @@ class Configuration(object):
 			self.accuracy(Xts, Yts)
 
 
-
+# preps dataframe as embedded data
 def dataprep(df):
 	lengths = []
 	tweet_vecs = []
 	outputs = []
+	#check skew vars
+	pos = 0
+	neg = 0
 	for index,row in df.iterrows():
 		tokens = row[6].split(" ")
 		lengths.append(len(tokens))
-		vec = []
-		for word in tokens:
-			try:
-				idx = w2v.wv.vocab[word].index
-				vec.extend([idx])							
-			# zero padding
-			except TypeError:								
-				pass															
-			# word not it dict, simply ignore
-			except KeyError:
-				pass
+		vec = tweet_covert(tokens)
 
 		if (row[1] == 4):
 			outputs.append(1)
+			pos += 1
 		else:
 			outputs.append(row[1])
-		
+			neg += 1
 		tweet_vecs.append(vec)
+	
+	#print(pos, ' ',neg)
 	return (tweet_vecs, outputs, lengths)
+
+# converts a tweet into a an embedded vector #
+def tweet_covert(tweet):
+	vec = []
+	for word in tweet:
+		
+		# preprocess word
+		if word.startswith('@'):
+			word = 'USERNAME'
+		elif word.startswith('http:'):
+			word = 'URL'
+		elif re.search(r'(.)\1\1', word):
+			word = reduce_word(word)
+
+		try:
+			idx = w2v.wv.vocab[word].index
+			vec.extend([idx])							
+		# zero padding
+		except TypeError:								
+			pass															
+		# word not it dict, simply ignore
+		except KeyError:
+			pass
+	return vec
+
+def reduce_word(word):
+	w_processed = ''
+	ll = ''
+	lcount = 1
+	for letter in word:
+		if ll is letter:
+			lcount += 1
+		else:
+			lcount = 1
+		
+		if lcount < 3:
+			w_processed = w_processed + letter
+
+		ll = letter
+	return w_processed
 
 
 
@@ -166,19 +209,23 @@ weights = np.load(open('../vocab_weights', 'rb'))
 
 # create different configs based on LSTM Units #
 confs = []
-#c = Configuration('CONF1', 60, 2, [('Embedding', weights, time_sequence), ('LSTM', 100, .2), ('Dense', 1)])
-confs.append(Configuration('CONF1', 60, 2, [('Embedding', weights, time_sequence), ('LSTM', 100, .2), ('Dense', 1)]))
-confs.append(Configuration('CONF2', 60, 2, [('Embedding', weights, time_sequence), ('LSTM', 50, .2), ('Dense', 1)]))
-confs.append(Configuration('CONF2', 60, 2, [('Embedding', weights, time_sequence), ('LSTM', 1, .2), ('Dense', 1)]))
-
+#confs.append(Configuration('CONF1', 60, 5, [('Embedding', weights, time_sequence), ('LSTM', 100, .2), ('Dense', 1)]))
+#confs.append(Configuration('CONF2', 60, 5, [('Embedding', weights, time_sequence), ('LSTM', 50, .2), ('Dense', 1)]))
+#confs.append(Configuration('CONF3', 60, 5, [('Embedding', weights, time_sequence), ('LSTM', 1, .2), ('Dense', 1)]))
 # create different configs based on Dense Units
-confs.append(Configuration('CONF2', 60, 2, [('Embedding', weights, time_sequence), ('LSTM', 50, .2), ('Dense', 10)]))
-confs.append(Configuration('CONF2', 60, 2, [('Embedding', weights, time_sequence), ('LSTM', 50, .2), ('Dense', 10), ('Dense', 1)]))
+#confs.append(Configuration('CONF_DENSE10', 60, 5, [('Embedding', weights, time_sequence), ('LSTM', 50, .2), ('Dense', 10), ('Dense', 1)]))
+# stacked LSTM layers
+confs.append(Configuration('CONF_LSTM_LAYER', 60, 5, [('Embedding', weights, time_sequence), ('LSTM', 50, .2), ('LSTM', 25, .2), ('Dense', 1)]))
 
 # Run inline 
 for c in confs:
 	c.run('mean_squared_error', 'adam', X_train, outputs_train)
 	c.accuracy(X_test, outputs_test)
+	test_tweet = 'this is a neutral tweet, yuh.'
+	test_vec = tweet_covert(test_tweet.split(" "))
+	test_vec = sequence.pad_sequences([test_vec], maxlen=time_sequence)
+	output = c.model.predict(test_vec)
+	print(' -- output for "this is a neutral tweet, yuh.": ', output, '\n')
 
 
 # Threading #
@@ -187,14 +234,6 @@ for c in confs:
 # with ThreadPoolExecutor(max_workers=4) as e:
 # 	for c in confs:
 # 		result = e.submit(c.run_worker, X_test, outputs_test, X_test, outputs_test)
-
-
-
-
-
-
-
-
 
 
 
