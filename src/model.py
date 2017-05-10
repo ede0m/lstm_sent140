@@ -76,18 +76,31 @@ class Configuration(object):
 		self.model.fit(TrX, TrY, epochs=self.epochs, batch_size=self.batchsize, callbacks=callbacks, validation_split=.25)
 		
 
-	def accuracy(self, TsX,  TsY):
-		#write = open('../trials/'+self.name+'.txt')
+	def metrics(self, TsX,  TsY):
 
 		self.model.load_weights('best_weights.hdf5')
+		test_tweet = 'this is a neutral tweet, yuh.'
+		test_vec = tweet_covert(test_tweet.split(" "))
+		test_vec = sequence.pad_sequences([test_vec], maxlen=time_sequence)
+		pred_tw = c.model.predict(test_vec)
 		scores = self.model.evaluate(TsX, TsY, verbose=1)
-		# write.write(' ', self.name, '\n')
-		# write.write(' -- epochs: ', self.epochs)
-		# write.write(' -- batchsize: ', self.batchsize)
-		# write.write(' -- layers: ', end='')
-		# for layer in self.layers:
-		# 	write.write(layer, ' -> ' ,end='')
-		# write.write('\n -- test accuracy: ', scores[1])
+	    
+	    # Confusion Matrix (based on binary outputs)
+		cf = [[0,0],[0,0]]
+		for idx, example in enumerate(TsX):
+			output = self.model.predict(np.array([example]))
+			if output[0][0] < .50:
+				if TsY[idx] is 0:
+					cf[0][0] += 1
+				else:
+					cf[1][0] += 1
+			else:
+				if TsY[idx] is 1:
+					cf[1][1] += 1
+				else:
+					cf[0][1] += 1
+		cf_acc = (cf[0][0] + cf[1][1]) / (cf[0][0] + cf[1][1] + cf[0][1] + cf[1][0])
+
 		print('\n\n ---- ', self.name, ' ----\n')
 		print(' -- epochs: ', self.epochs)
 		print(' -- batchsize: ', self.batchsize)
@@ -99,12 +112,18 @@ class Configuration(object):
 				print(layer, ' -> ', end='')
 		print('Output')
 		print(' -- test accuracy: ', scores[1])
+		print(' -- confusion accuracy: ', cf_acc)
+		print(' -- output for "this is a neutral tweet, yuh.": ', pred_tw)
+		print(' -- confusion matrix: \n')
+		for row in cf:
+			print('\t', row[0], '\t' , row[1])
+		print()
 
 	# Not currently working with keras and tensorflow
 	def run_worker(self, Xt, Yt, Xts, Yts):
 		with tf.Session(graph=self.graph):
 			self.run('mean_squared_error', 'adam', Xt, Yt)
-			self.accuracy(Xts, Yts)
+			self.metrics(Xts, Yts)
 
 
 # preps dataframe as embedded data
@@ -187,7 +206,7 @@ df_test = pd.read_csv('../data/sampleTest.csv', encoding='ISO-8859-1')
 data = dataprep(df_test)
 tweet_vecs_test = data[0]
 outputs_test = data[1]
-# lengths = data[2]
+lengths = data[2]
 
 # Training data prep
 data = dataprep(df_train)
@@ -203,30 +222,24 @@ std = np.std(lengths)
 time_sequence = math.ceil(mean + (3*std))										# Constant for both train and test sets. Evaluated from training set examples
 tweet_vecs_train = np.array(tweet_vecs_train)
 
-X_train = sequence.pad_sequences(tweet_vecs_train, maxlen=time_sequence) 		# Fixed by downgrading to numpy 1.11.2 
+#X_train = sequence.pad_sequences(tweet_vecs_train, maxlen=time_sequence) 		# Fixed by downgrading to numpy 1.11.2 
 X_test = sequence.pad_sequences(tweet_vecs_test, maxlen=time_sequence)
 weights = np.load(open('../vocab_weights', 'rb'))
 
 # create different configs based on LSTM Units #
 confs = []
-#confs.append(Configuration('CONF1', 60, 5, [('Embedding', weights, time_sequence), ('LSTM', 100, .2), ('Dense', 1)]))
-#confs.append(Configuration('CONF2', 60, 5, [('Embedding', weights, time_sequence), ('LSTM', 50, .2), ('Dense', 1)]))
-#confs.append(Configuration('CONF3', 60, 5, [('Embedding', weights, time_sequence), ('LSTM', 1, .2), ('Dense', 1)]))
+confs.append(Configuration('CONF1', 60, 5, [('Embedding', weights, time_sequence), ('LSTM', 100, .2), ('Dense', 1)]))
+confs.append(Configuration('CONF2', 60, 5, [('Embedding', weights, time_sequence), ('LSTM', 50, .2), ('Dense', 1)]))
+confs.append(Configuration('CONF3', 60, 5, [('Embedding', weights, time_sequence), ('LSTM', 1, .2), ('Dense', 1)]))
 # create different configs based on Dense Units
-#confs.append(Configuration('CONF_DENSE10', 60, 5, [('Embedding', weights, time_sequence), ('LSTM', 50, .2), ('Dense', 10), ('Dense', 1)]))
+confs.append(Configuration('CONF_DENSE10', 60, 5, [('Embedding', weights, time_sequence), ('LSTM', 50, .2), ('Dense', 10), ('Dense', 1)]))
 # stacked LSTM layers
 confs.append(Configuration('CONF_LSTM_LAYER', 60, 5, [('Embedding', weights, time_sequence), ('LSTM', 50, .2), ('LSTM', 25, .2), ('Dense', 1)]))
 
 # Run inline 
 for c in confs:
 	c.run('mean_squared_error', 'adam', X_train, outputs_train)
-	c.accuracy(X_test, outputs_test)
-	test_tweet = 'this is a neutral tweet, yuh.'
-	test_vec = tweet_covert(test_tweet.split(" "))
-	test_vec = sequence.pad_sequences([test_vec], maxlen=time_sequence)
-	output = c.model.predict(test_vec)
-	print(' -- output for "this is a neutral tweet, yuh.": ', output, '\n')
-
+	c.metrics(X_test, outputs_test)
 
 # Threading #
 # -- does not currently work
