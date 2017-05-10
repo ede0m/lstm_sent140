@@ -2,7 +2,6 @@
 
 # utilities
 import gensim 
-from gensim.utils import simple_preprocess
 import numpy as np
 import math
 import pandas as pd
@@ -13,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 from keras.models import Sequential
 from keras.layers import Dense, Embedding
 from keras.layers import LSTM
-from keras.utils import plot_model
+#from keras.utils import plot_model
 from keras.preprocessing import sequence
 from keras.callbacks import ModelCheckpoint
 from keras.callbacks import EarlyStopping
@@ -222,7 +221,7 @@ std = np.std(lengths)
 time_sequence = math.ceil(mean + (3*std))										# Constant for both train and test sets. Evaluated from training set examples
 tweet_vecs_train = np.array(tweet_vecs_train)
 
-#X_train = sequence.pad_sequences(tweet_vecs_train, maxlen=time_sequence) 		# Fixed by downgrading to numpy 1.11.2 
+X_train = sequence.pad_sequences(tweet_vecs_train, maxlen=time_sequence) 		# Fixed by downgrading to numpy 1.11.2 
 X_test = sequence.pad_sequences(tweet_vecs_test, maxlen=time_sequence)
 weights = np.load(open('../vocab_weights', 'rb'))
 
