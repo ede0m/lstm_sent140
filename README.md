@@ -3,13 +3,14 @@
 
 
 Dependencies:
-   
-   - word2vec scripts
       
           pip3 install pandas
           pip3 install cython
           pip3 install gensim
-   
-   - model 
-   
+          pip3 install numpy==1.11.2
+          pip3 install h5py
           pip3 install keras
+
+Run:
+   
+          python3 run.py
